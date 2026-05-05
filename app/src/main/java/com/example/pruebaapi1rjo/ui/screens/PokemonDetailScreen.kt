@@ -67,6 +67,16 @@ fun PokemonDetailScreen(
                         )
                         Spacer(modifier = Modifier.height(16.dp))
                         
+                        if (p.description.isNotBlank()) {
+                            Text(
+                                text = p.description,
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+                        }
+
                         Text(
                             text = "Types",
                             style = MaterialTheme.typography.titleLarge,

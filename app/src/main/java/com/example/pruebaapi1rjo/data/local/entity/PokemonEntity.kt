@@ -10,5 +10,6 @@ data class PokemonEntity(
     val imageUrl: String,
     val types: String, // Comma-separated
     val height: Int,
-    val weight: Int
+    val weight: Int,
+    val description: String = ""
 )

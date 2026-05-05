@@ -26,7 +26,9 @@ object AppModule {
             context,
             PokemonDatabase::class.java,
             "pokemon.db"
-        ).build()
+        )
+            .fallbackToDestructiveMigration()
+            .build()
     }
 
     @Provides

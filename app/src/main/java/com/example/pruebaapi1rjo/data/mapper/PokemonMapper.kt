@@ -5,14 +5,15 @@ import com.example.pruebaapi1rjo.data.remote.dto.PokemonDetailDto
 import com.example.pruebaapi1rjo.domain.model.Pokemon
 import com.example.pruebaapi1rjo.domain.model.PokemonStat
 
-fun PokemonDetailDto.toPokemonEntity(): PokemonEntity {
+fun PokemonDetailDto.toPokemonEntity(description: String = ""): PokemonEntity {
     return PokemonEntity(
         id = id,
         name = name,
         imageUrl = sprites.other.officialArtwork.frontDefault ?: "",
         types = types.joinToString(",") { it.type.name },
         height = height,
-        weight = weight
+        weight = weight,
+        description = description
     )
 }
 
@@ -23,11 +24,12 @@ fun PokemonEntity.toPokemon(): Pokemon {
         imageUrl = imageUrl,
         types = types.split(",").filter { it.isNotBlank() },
         height = height,
-        weight = weight
+        weight = weight,
+        description = description
     )
 }
 
-fun PokemonDetailDto.toPokemon(): Pokemon {
+fun PokemonDetailDto.toPokemon(description: String = ""): Pokemon {
     return Pokemon(
         id = id,
         name = name,
@@ -35,6 +37,7 @@ fun PokemonDetailDto.toPokemon(): Pokemon {
         types = types.map { it.type.name },
         height = height,
         weight = weight,
-        stats = stats.map { PokemonStat(it.stat.name, it.baseStat) }
+        stats = stats.map { PokemonStat(it.stat.name, it.baseStat) },
+        description = description
     )
 }

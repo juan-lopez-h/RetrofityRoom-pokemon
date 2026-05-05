@@ -33,6 +33,12 @@ class PokemonViewModel @Inject constructor(
     private val _isOnline = MutableStateFlow(true)
     val isOnline = _isOnline.asStateFlow()
 
+    private val _types = MutableStateFlow<List<String>>(emptyList())
+    val types = _types.asStateFlow()
+
+    private val _selectedType = MutableStateFlow<String?>(null)
+    val selectedType = _selectedType.asStateFlow()
+
     private val _selectedPokemon = MutableStateFlow<Pokemon?>(null)
     val selectedPokemon = _selectedPokemon.asStateFlow()
 
@@ -41,14 +47,32 @@ class PokemonViewModel @Inject constructor(
 
     init {
         observeNetwork()
+        fetchTypes()
+    }
+
+    private fun fetchTypes() {
+        viewModelScope.launch {
+            repository.getTypes().onSuccess {
+                _types.value = listOf("all") + it
+            }
+        }
+    }
+
+    fun onTypeSelected(type: String?) {
+        _selectedType.value = if (type == "all") null else type
+        // Reset search query when type is selected? Or combine them.
+        // For now, let's just use it in the pager.
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val pokemons: Flow<PagingData<Pokemon>> = _searchQuery
-        .flatMapLatest { query ->
-            repository.getPokemonPagingData(query)
-        }
-        .cachedIn(viewModelScope)
+    val pokemons: Flow<PagingData<Pokemon>> = kotlinx.coroutines.flow.combine(
+        _searchQuery,
+        _selectedType
+    ) { query, type ->
+        query to type
+    }.flatMapLatest { (query, type) ->
+        repository.getPokemonPagingData(query, type)
+    }.cachedIn(viewModelScope)
 
     fun onSearchQueryChange(newQuery: String) {
         _searchQuery.value = newQuery

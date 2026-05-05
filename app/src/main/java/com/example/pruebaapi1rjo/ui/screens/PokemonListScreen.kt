@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -35,6 +37,8 @@ fun PokemonListScreen(
     val pokemons = viewModel.pokemons.collectAsLazyPagingItems()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isOnline by viewModel.isOnline.collectAsState()
+    val types by viewModel.types.collectAsState()
+    val selectedType by viewModel.selectedType.collectAsState()
 
     Scaffold(
         topBar = {
@@ -58,8 +62,8 @@ fun PokemonListScreen(
                     onValueChange = viewModel::onSearchQueryChange,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp),
-                    placeholder = { Text("Search by name or type...") },
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    placeholder = { Text("Search by name...") },
                     leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
@@ -68,6 +72,20 @@ fun PokemonListScreen(
                         unfocusedIndicatorColor = Color.Transparent
                     )
                 )
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(types) { type ->
+                        FilterChip(
+                            selected = (selectedType ?: "all") == type,
+                            onClick = { viewModel.onTypeSelected(type) },
+                            label = { Text(type.replaceFirstChar { it.uppercase() }) }
+                        )
+                    }
+                }
             }
         }
     ) { padding ->

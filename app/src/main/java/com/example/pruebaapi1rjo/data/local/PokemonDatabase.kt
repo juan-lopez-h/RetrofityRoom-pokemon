@@ -7,7 +7,7 @@ import com.example.pruebaapi1rjo.data.local.entity.RemoteKeyEntity
 
 @Database(
     entities = [PokemonEntity::class, RemoteKeyEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class PokemonDatabase : RoomDatabase() {

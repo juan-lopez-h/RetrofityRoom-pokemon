@@ -7,6 +7,7 @@ import androidx.paging.PagingData
 import androidx.paging.map
 import com.example.pruebaapi1rjo.data.local.PokemonDatabase
 import com.example.pruebaapi1rjo.data.mapper.toPokemon
+import com.example.pruebaapi1rjo.data.mapper.toPokemonEntity
 import com.example.pruebaapi1rjo.domain.model.Pokemon
 import com.example.pruebaapi1rjo.data.remote.PokemonApi
 import kotlinx.coroutines.flow.Flow
@@ -18,8 +19,14 @@ class PokemonRepository @Inject constructor(
     private val pokemonApi: PokemonApi
 ) {
     @OptIn(ExperimentalPagingApi::class)
-    fun getPokemonPagingData(query: String): Flow<PagingData<Pokemon>> {
-        val pagingSourceFactory = { pokemonDb.dao.getPokemons("%$query%") }
+    fun getPokemonPagingData(query: String, typeFilter: String? = null): Flow<PagingData<Pokemon>> {
+        val pagingSourceFactory = { 
+            if (typeFilter != null) {
+                pokemonDb.dao.getPokemons("%$typeFilter%")
+            } else {
+                pokemonDb.dao.getPokemons("%$query%")
+            }
+        }
 
         return Pager(
             config = PagingConfig(
@@ -28,7 +35,8 @@ class PokemonRepository @Inject constructor(
             ),
             remoteMediator = PokemonRemoteMediator(
                 pokemonDb = pokemonDb,
-                pokemonApi = pokemonApi
+                pokemonApi = pokemonApi,
+                typeFilter = typeFilter
             ),
             pagingSourceFactory = pagingSourceFactory
         ).flow.map { pagingData ->
@@ -38,25 +46,44 @@ class PokemonRepository @Inject constructor(
 
     suspend fun getPokemonDetail(name: String): Result<Pokemon> {
         return try {
-            // Try to get from local first
             val local = pokemonDb.dao.getPokemonByName(name)
-            if (local != null) {
-                // We might need extra details (stats) from API if not in entity
-                // For simplicity, we always fetch detail for stats
+            
+            // If we have local but no description, we should fetch from remote
+            if (local != null && local.description.isNotBlank()) {
+                // If it's a full cached entity with description, we still might want stats
+                // In this implementation, stats aren't in the entity, so we always fetch detail
+                // but we can optimize. For now, let's fetch.
                 val remoteDetail = pokemonApi.getPokemonDetail(name)
-                Result.success(remoteDetail.toPokemon())
+                Result.success(remoteDetail.toPokemon(local.description))
             } else {
                 val remoteDetail = pokemonApi.getPokemonDetail(name)
-                Result.success(remoteDetail.toPokemon())
+                val species = pokemonApi.getPokemonSpecies(name)
+                val description = species.flavorTextEntries
+                    .firstOrNull { it.language.name == "en" }
+                    ?.flavorText?.replace("\n", " ") ?: ""
+                
+                // Update local with description
+                val entity = remoteDetail.toPokemonEntity(description)
+                pokemonDb.dao.insertAll(listOf(entity))
+                
+                Result.success(remoteDetail.toPokemon(description))
             }
         } catch (e: Exception) {
-            // If offline and we have local, return local without stats
             val local = pokemonDb.dao.getPokemonByName(name)
             if (local != null) {
                 Result.success(local.toPokemon())
             } else {
                 Result.failure(e)
             }
+        }
+    }
+
+    suspend fun getTypes(): Result<List<String>> {
+        return try {
+            val response = pokemonApi.getTypeList()
+            Result.success(response.results.map { it.name })
+        } catch (e: Exception) {
+            Result.failure(e)
         }
     }
 }
