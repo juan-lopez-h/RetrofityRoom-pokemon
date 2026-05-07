@@ -25,7 +25,6 @@ fun PokemonDetailScreen(
     onBackClick: () -> Unit
 ) {
     val pokemon by viewModel.selectedPokemon.collectAsState()
-    val isLoading by viewModel.isLoadingDetail.collectAsState()
     val error by viewModel.detailError.collectAsState()
 
     LaunchedEffect(pokemonName) {
@@ -50,9 +49,7 @@ fun PokemonDetailScreen(
                 .padding(padding),
             contentAlignment = Alignment.Center
         ) {
-            if (isLoading) {
-                CircularProgressIndicator()
-            } else if (error != null) {
+            if (error != null) {
                 ErrorState(
                     message = error ?: "Unknown error",
                     onRetry = { viewModel.selectPokemon(pokemonName) }

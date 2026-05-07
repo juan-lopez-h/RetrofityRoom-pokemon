@@ -36,12 +36,21 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun providePokemonApi(): PokemonApi {
+    fun providePokemonApi(@ApplicationContext context: Context): PokemonApi {
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = HttpLoggingInterceptor.Level.HEADERS // Más rápido que BODY
         }
+        
+        // Caché de 10MB
+        val cache = okhttp3.Cache(context.cacheDir, 10 * 1024 * 1024)
+
         val client = OkHttpClient.Builder()
             .addInterceptor(logging)
+            .cache(cache)
+            .dispatcher(okhttp3.Dispatcher().apply {
+                maxRequests = 50
+                maxRequestsPerHost = 50 // Permite cargar los 20 detalles en paralelo real
+            })
             .build()
 
         return Retrofit.Builder()

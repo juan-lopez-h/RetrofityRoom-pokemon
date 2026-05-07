@@ -53,7 +53,11 @@ class PokemonRemoteMediator(
                     
                     pokemonEntities = names.map { name ->
                         async {
-                            pokemonApi.getPokemonDetail(name).toPokemonEntity()
+                            // Check local first to avoid network hit
+                            val local = pokemonDb.dao.getPokemonByName(name)
+                            if (local != null) local else {
+                                pokemonApi.getPokemonDetail(name).toPokemonEntity()
+                            }
                         }
                     }.awaitAll()
                     
@@ -64,7 +68,10 @@ class PokemonRemoteMediator(
                     
                     pokemonEntities = names.map { name ->
                         async {
-                            pokemonApi.getPokemonDetail(name).toPokemonEntity()
+                            val local = pokemonDb.dao.getPokemonByName(name)
+                            if (local != null) local else {
+                                pokemonApi.getPokemonDetail(name).toPokemonEntity()
+                            }
                         }
                     }.awaitAll()
                     
@@ -77,7 +84,10 @@ class PokemonRemoteMediator(
                     
                     pokemonEntities = response.results.map { listItem ->
                         async {
-                            pokemonApi.getPokemonDetail(listItem.name).toPokemonEntity()
+                            val local = pokemonDb.dao.getPokemonByName(listItem.name)
+                            if (local != null) local else {
+                                pokemonApi.getPokemonDetail(listItem.name).toPokemonEntity()
+                            }
                         }
                     }.awaitAll()
                     

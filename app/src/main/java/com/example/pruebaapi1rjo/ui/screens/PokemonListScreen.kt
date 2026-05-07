@@ -147,17 +147,7 @@ fun PokemonListScreen(
                         }
                     }
 
-                    when (val state = pokemons.loadState.append) {
-                        is LoadState.Loading -> {
-                            item {
-                                Box(
-                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    CircularProgressIndicator()
-                                }
-                            }
-                        }
+                    when (pokemons.loadState.append) {
                         is LoadState.Error -> {
                             item {
                                 Column(
@@ -173,10 +163,6 @@ fun PokemonListScreen(
                         }
                         else -> {}
                     }
-                }
-
-                if (pokemons.loadState.refresh is LoadState.Loading) {
-                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
             }
         }
