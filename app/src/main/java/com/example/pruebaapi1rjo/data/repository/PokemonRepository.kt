@@ -5,6 +5,7 @@ import androidx.paging.Pager
 import androidx.paging.PagingConfig
 import androidx.paging.PagingData
 import androidx.paging.map
+import com.example.pruebaapi1rjo.data.local.PokemonDao
 import com.example.pruebaapi1rjo.data.local.PokemonDatabase
 import com.example.pruebaapi1rjo.data.mapper.toPokemon
 import com.example.pruebaapi1rjo.data.mapper.toPokemonEntity
@@ -16,15 +17,16 @@ import javax.inject.Inject
 
 class PokemonRepository @Inject constructor(
     private val pokemonDb: PokemonDatabase,
+    private val pokemonDao: PokemonDao,
     private val pokemonApi: PokemonApi
 ) {
     @OptIn(ExperimentalPagingApi::class)
     fun getPokemonPagingData(query: String, typeFilter: String? = null): Flow<PagingData<Pokemon>> {
         val pagingSourceFactory = { 
             if (typeFilter != null) {
-                pokemonDb.dao.getPokemons("%$typeFilter%")
+                pokemonDao.getPokemons("%$typeFilter%")
             } else {
-                pokemonDb.dao.getPokemons("%$query%")
+                pokemonDao.getPokemons("%$query%")
             }
         }
 
@@ -46,13 +48,10 @@ class PokemonRepository @Inject constructor(
 
     suspend fun getPokemonDetail(name: String): Result<Pokemon> {
         return try {
-            val local = pokemonDb.dao.getPokemonByName(name)
+            val local = pokemonDao.getPokemonByName(name)
             
             // If we have local but no description, we should fetch from remote
             if (local != null && local.description.isNotBlank()) {
-                // If it's a full cached entity with description, we still might want stats
-                // In this implementation, stats aren't in the entity, so we always fetch detail
-                // but we can optimize. For now, let's fetch.
                 val remoteDetail = pokemonApi.getPokemonDetail(name)
                 Result.success(remoteDetail.toPokemon(local.description))
             } else {
@@ -64,12 +63,12 @@ class PokemonRepository @Inject constructor(
                 
                 // Update local with description
                 val entity = remoteDetail.toPokemonEntity(description)
-                pokemonDb.dao.insertAll(listOf(entity))
+                pokemonDao.insertAll(listOf(entity))
                 
                 Result.success(remoteDetail.toPokemon(description))
             }
         } catch (e: Exception) {
-            val local = pokemonDb.dao.getPokemonByName(name)
+            val local = pokemonDao.getPokemonByName(name)
             if (local != null) {
                 Result.success(local.toPokemon())
             } else {

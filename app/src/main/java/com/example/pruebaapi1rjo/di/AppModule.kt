@@ -32,6 +32,9 @@ object AppModule {
     }
 
     @Provides
+    fun providePokemonDao(database: PokemonDatabase) = database.dao
+
+    @Provides
     @Singleton
     fun providePokemonApi(): PokemonApi {
         val logging = HttpLoggingInterceptor().apply {
