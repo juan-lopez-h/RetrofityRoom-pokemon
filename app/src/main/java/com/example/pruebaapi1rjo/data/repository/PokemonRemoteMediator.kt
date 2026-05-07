@@ -10,6 +10,9 @@ import com.example.pruebaapi1rjo.data.local.entity.PokemonEntity
 import com.example.pruebaapi1rjo.data.local.entity.RemoteKeyEntity
 import com.example.pruebaapi1rjo.data.mapper.toPokemonEntity
 import com.example.pruebaapi1rjo.data.remote.PokemonApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import retrofit2.HttpException
 import java.io.IOException
 
@@ -17,7 +20,8 @@ import java.io.IOException
 class PokemonRemoteMediator(
     private val pokemonDb: PokemonDatabase,
     private val pokemonApi: PokemonApi,
-    private val typeFilter: String? = null
+    private val typeFilter: String? = null,
+    private val habitatFilter: String? = null
 ) : RemoteMediator<Int, PokemonEntity>() {
 
     override suspend fun load(
@@ -39,28 +43,46 @@ class PokemonRemoteMediator(
                 }
             }
 
-            val pokemonEntities = if (typeFilter != null) {
-                // If filtering by type, we fetch the whole list from API (no pagination in PokeAPI for /type/{id})
-                // But for the workshop, this counts as "using an API endpoint for filtering"
-                val response = pokemonApi.getTypeDetail(typeFilter)
-                response.pokemon.map { it.pokemon.name }.map { name ->
-                    val detail = pokemonApi.getPokemonDetail(name)
-                    detail.toPokemonEntity()
-                }
-            } else {
-                val response = pokemonApi.getPokemonList(
-                    limit = state.config.pageSize,
-                    offset = loadKey
-                )
-                response.results.map { listItem ->
-                    val detail = pokemonApi.getPokemonDetail(listItem.name)
-                    detail.toPokemonEntity()
-                }
-            }
+            val pokemonEntities: List<PokemonEntity>
+            val endOfPaginationReached: Boolean
 
-            val endOfPaginationReached = if (typeFilter != null) true else {
-                val response = pokemonApi.getPokemonList(state.config.pageSize, loadKey)
-                response.next == null
+            coroutineScope {
+                if (typeFilter != null) {
+                    val response = pokemonApi.getTypeDetail(typeFilter)
+                    val names = response.pokemon.map { it.pokemon.name }
+                    
+                    pokemonEntities = names.map { name ->
+                        async {
+                            pokemonApi.getPokemonDetail(name).toPokemonEntity()
+                        }
+                    }.awaitAll()
+                    
+                    endOfPaginationReached = true
+                } else if (habitatFilter != null) {
+                    val response = pokemonApi.getHabitatDetail(habitatFilter)
+                    val names = response.pokemonSpecies.map { it.name }
+                    
+                    pokemonEntities = names.map { name ->
+                        async {
+                            pokemonApi.getPokemonDetail(name).toPokemonEntity()
+                        }
+                    }.awaitAll()
+                    
+                    endOfPaginationReached = true
+                } else {
+                    val response = pokemonApi.getPokemonList(
+                        limit = state.config.pageSize,
+                        offset = loadKey
+                    )
+                    
+                    pokemonEntities = response.results.map { listItem ->
+                        async {
+                            pokemonApi.getPokemonDetail(listItem.name).toPokemonEntity()
+                        }
+                    }.awaitAll()
+                    
+                    endOfPaginationReached = response.next == null
+                }
             }
 
             pokemonDb.withTransaction {

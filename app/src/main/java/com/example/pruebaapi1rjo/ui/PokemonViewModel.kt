@@ -39,39 +39,56 @@ class PokemonViewModel @Inject constructor(
     private val _selectedType = MutableStateFlow<String?>(null)
     val selectedType = _selectedType.asStateFlow()
 
+    private val _habitats = MutableStateFlow<List<String>>(emptyList())
+    val habitats = _habitats.asStateFlow()
+
+    private val _selectedHabitat = MutableStateFlow<String?>(null)
+    val selectedHabitat = _selectedHabitat.asStateFlow()
+
     private val _selectedPokemon = MutableStateFlow<Pokemon?>(null)
     val selectedPokemon = _selectedPokemon.asStateFlow()
 
     private val _isLoadingDetail = MutableStateFlow(false)
     val isLoadingDetail = _isLoadingDetail.asStateFlow()
 
+    private val _detailError = MutableStateFlow<String?>(null)
+    val detailError = _detailError.asStateFlow()
+
     init {
         observeNetwork()
-        fetchTypes()
+        fetchFilters()
     }
 
-    private fun fetchTypes() {
+    private fun fetchFilters() {
         viewModelScope.launch {
             repository.getTypes().onSuccess {
                 _types.value = listOf("all") + it
+            }
+            repository.getHabitats().onSuccess {
+                _habitats.value = listOf("all") + it
             }
         }
     }
 
     fun onTypeSelected(type: String?) {
         _selectedType.value = if (type == "all") null else type
-        // Reset search query when type is selected? Or combine them.
-        // For now, let's just use it in the pager.
+        _selectedHabitat.value = null // Clear habitat when type selected
+    }
+
+    fun onHabitatSelected(habitat: String?) {
+        _selectedHabitat.value = if (habitat == "all") null else habitat
+        _selectedType.value = null // Clear type when habitat selected
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     val pokemons: Flow<PagingData<Pokemon>> = kotlinx.coroutines.flow.combine(
         _searchQuery,
-        _selectedType
-    ) { query, type ->
-        query to type
-    }.flatMapLatest { (query, type) ->
-        repository.getPokemonPagingData(query, type)
+        _selectedType,
+        _selectedHabitat
+    ) { query, type, habitat ->
+        Triple(query, type, habitat)
+    }.flatMapLatest { (query, type, habitat) ->
+        repository.getPokemonPagingData(query, type, habitat)
     }.cachedIn(viewModelScope)
 
     fun onSearchQueryChange(newQuery: String) {
@@ -81,11 +98,12 @@ class PokemonViewModel @Inject constructor(
     fun selectPokemon(name: String) {
         _isLoadingDetail.value = true
         _selectedPokemon.value = null
+        _detailError.value = null
         viewModelScope.launch {
             repository.getPokemonDetail(name).onSuccess {
                 _selectedPokemon.value = it
             }.onFailure {
-                // Handle error
+                _detailError.value = "Failed to load $name. Please check your connection."
             }
             _isLoadingDetail.value = false
         }

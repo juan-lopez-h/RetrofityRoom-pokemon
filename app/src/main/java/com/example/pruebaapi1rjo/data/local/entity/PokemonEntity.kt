@@ -11,5 +11,6 @@ data class PokemonEntity(
     val types: String, // Comma-separated
     val height: Int,
     val weight: Int,
-    val description: String = ""
+    val description: String = "",
+    val stats: String = "" // "hp:45,attack:49,..."
 )

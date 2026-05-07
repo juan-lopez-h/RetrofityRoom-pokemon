@@ -26,6 +26,7 @@ fun PokemonDetailScreen(
 ) {
     val pokemon by viewModel.selectedPokemon.collectAsState()
     val isLoading by viewModel.isLoadingDetail.collectAsState()
+    val error by viewModel.detailError.collectAsState()
 
     LaunchedEffect(pokemonName) {
         viewModel.selectPokemon(pokemonName)
@@ -51,6 +52,11 @@ fun PokemonDetailScreen(
         ) {
             if (isLoading) {
                 CircularProgressIndicator()
+            } else if (error != null) {
+                ErrorState(
+                    message = error ?: "Unknown error",
+                    onRetry = { viewModel.selectPokemon(pokemonName) }
+                )
             } else {
                 pokemon?.let { p ->
                     Column(
@@ -114,7 +120,7 @@ fun PokemonDetailScreen(
                             }
                         }
                     }
-                } ?: Text("Pokemon not found or no internet connection")
+                }
             }
         }
     }

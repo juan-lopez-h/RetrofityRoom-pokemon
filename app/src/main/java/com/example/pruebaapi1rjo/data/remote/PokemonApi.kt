@@ -5,6 +5,8 @@ import com.example.pruebaapi1rjo.data.remote.dto.PokemonListDto
 import com.example.pruebaapi1rjo.data.remote.dto.PokemonSpeciesDto
 import com.example.pruebaapi1rjo.data.remote.dto.TypeDetailResponseDto
 import com.example.pruebaapi1rjo.data.remote.dto.TypeListResponseDto
+import com.example.pruebaapi1rjo.data.remote.dto.HabitatDetailResponseDto
+import com.example.pruebaapi1rjo.data.remote.dto.HabitatListResponseDto
 import retrofit2.http.GET
 import retrofit2.http.Path
 import retrofit2.http.Query
@@ -33,6 +35,14 @@ interface PokemonApi {
     suspend fun getTypeDetail(
         @Path("name") name: String
     ): TypeDetailResponseDto
+
+    @GET("pokemon-habitat")
+    suspend fun getHabitatList(): HabitatListResponseDto
+
+    @GET("pokemon-habitat/{name}")
+    suspend fun getHabitatDetail(
+        @Path("name") name: String
+    ): HabitatDetailResponseDto
 
     companion object {
         const val BASE_URL = "https://pokeapi.co/api/v2/"

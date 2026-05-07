@@ -8,6 +8,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -19,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.paging.LoadState
@@ -39,6 +41,8 @@ fun PokemonListScreen(
     val isOnline by viewModel.isOnline.collectAsState()
     val types by viewModel.types.collectAsState()
     val selectedType by viewModel.selectedType.collectAsState()
+    val habitats by viewModel.habitats.collectAsState()
+    val selectedHabitat by viewModel.selectedHabitat.collectAsState()
 
     Scaffold(
         topBar = {
@@ -72,10 +76,16 @@ fun PokemonListScreen(
                         unfocusedIndicatorColor = Color.Transparent
                     )
                 )
+                
+                Text(
+                    "Filter by Type:", 
+                    style = MaterialTheme.typography.labelSmall, 
+                    modifier = Modifier.padding(start = 8.dp)
+                )
                 LazyRow(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(8.dp),
+                        .padding(horizontal = 8.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(types) { type ->
@@ -86,54 +96,115 @@ fun PokemonListScreen(
                         )
                     }
                 }
+
+                Text(
+                    "Filter by Habitat:", 
+                    style = MaterialTheme.typography.labelSmall, 
+                    modifier = Modifier.padding(start = 8.dp)
+                )
+                LazyRow(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(habitats) { habitat ->
+                        FilterChip(
+                            selected = (selectedHabitat ?: "all") == habitat,
+                            onClick = { viewModel.onHabitatSelected(habitat) },
+                            label = { Text(habitat.replaceFirstChar { it.uppercase() }) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = MaterialTheme.colorScheme.secondaryContainer
+                            )
+                        )
+                    }
+                }
             }
         }
     ) { padding ->
         Box(modifier = Modifier.padding(padding)) {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(
-                    count = pokemons.itemCount,
-                    key = pokemons.itemKey { it.id }
-                ) { index ->
-                    val pokemon = pokemons[index]
-                    if (pokemon != null) {
-                        PokemonItem(pokemon = pokemon) {
-                            onPokemonClick(pokemon.name)
-                        }
-                    }
-                }
-
-                when (val state = pokemons.loadState.append) {
-                    is LoadState.Loading -> {
-                        item {
-                            Box(
-                                modifier = Modifier.fillMaxWidth().padding(16.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                CircularProgressIndicator()
+            if (pokemons.loadState.refresh is LoadState.Error) {
+                val error = (pokemons.loadState.refresh as LoadState.Error).error
+                ErrorState(
+                    message = "Could not load Pokedex. ${error.localizedMessage}",
+                    onRetry = { pokemons.retry() }
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(
+                        count = pokemons.itemCount,
+                        key = pokemons.itemKey { it.id }
+                    ) { index ->
+                        val pokemon = pokemons[index]
+                        if (pokemon != null) {
+                            PokemonItem(pokemon = pokemon) {
+                                onPokemonClick(pokemon.name)
                             }
                         }
                     }
-                    is LoadState.Error -> {
-                        item {
-                            Text(
-                                text = "Error loading more: ${state.error.localizedMessage}",
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(16.dp)
-                            )
+
+                    when (val state = pokemons.loadState.append) {
+                        is LoadState.Loading -> {
+                            item {
+                                Box(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator()
+                                }
+                            }
                         }
+                        is LoadState.Error -> {
+                            item {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth().padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Text("Error loading more", color = MaterialTheme.colorScheme.error)
+                                    Button(onClick = { pokemons.retry() }) {
+                                        Text("Retry")
+                                    }
+                                }
+                            }
+                        }
+                        else -> {}
                     }
-                    else -> {}
+                }
+
+                if (pokemons.loadState.refresh is LoadState.Loading) {
+                    CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
             }
+        }
+    }
+}
 
-            if (pokemons.loadState.refresh is LoadState.Loading) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            }
+@Composable
+fun ErrorState(message: String, onRetry: () -> Unit) {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(16.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            Icons.Default.Refresh, 
+            contentDescription = null, 
+            modifier = Modifier.size(64.dp),
+            tint = MaterialTheme.colorScheme.error
+        )
+        Spacer(Modifier.height(16.dp))
+        Text(
+            text = message,
+            textAlign = TextAlign.Center,
+            style = MaterialTheme.typography.bodyLarge
+        )
+        Spacer(Modifier.height(16.dp))
+        Button(onClick = onRetry) {
+            Text("Retry")
         }
     }
 }

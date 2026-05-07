@@ -13,7 +13,8 @@ fun PokemonDetailDto.toPokemonEntity(description: String = ""): PokemonEntity {
         types = types.joinToString(",") { it.type.name },
         height = height,
         weight = weight,
-        description = description
+        description = description,
+        stats = stats.joinToString(",") { "${it.stat.name}:${it.baseStat}" }
     )
 }
 
@@ -25,7 +26,11 @@ fun PokemonEntity.toPokemon(): Pokemon {
         types = types.split(",").filter { it.isNotBlank() },
         height = height,
         weight = weight,
-        description = description
+        description = description,
+        stats = stats.split(",").filter { it.contains(":") }.map {
+            val parts = it.split(":")
+            PokemonStat(parts[0], parts[1].toInt())
+        }
     )
 }
 

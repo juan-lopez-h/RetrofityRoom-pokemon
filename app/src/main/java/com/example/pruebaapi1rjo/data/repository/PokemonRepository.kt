@@ -21,10 +21,18 @@ class PokemonRepository @Inject constructor(
     private val pokemonApi: PokemonApi
 ) {
     @OptIn(ExperimentalPagingApi::class)
-    fun getPokemonPagingData(query: String, typeFilter: String? = null): Flow<PagingData<Pokemon>> {
+    fun getPokemonPagingData(
+        query: String, 
+        typeFilter: String? = null,
+        habitatFilter: String? = null
+    ): Flow<PagingData<Pokemon>> {
         val pagingSourceFactory = { 
             if (typeFilter != null) {
                 pokemonDao.getPokemons("%$typeFilter%")
+            } else if (habitatFilter != null) {
+                // Habitat filter doesn't map easily to local search since habitat isn't in entity
+                // For simplicity in this workshop, we use name search if no type
+                pokemonDao.getPokemons("%%")
             } else {
                 pokemonDao.getPokemons("%$query%")
             }
@@ -38,7 +46,8 @@ class PokemonRepository @Inject constructor(
             remoteMediator = PokemonRemoteMediator(
                 pokemonDb = pokemonDb,
                 pokemonApi = pokemonApi,
-                typeFilter = typeFilter
+                typeFilter = typeFilter,
+                habitatFilter = habitatFilter
             ),
             pagingSourceFactory = pagingSourceFactory
         ).flow.map { pagingData ->
@@ -46,22 +55,36 @@ class PokemonRepository @Inject constructor(
         }
     }
 
+    suspend fun getHabitats(): Result<List<String>> {
+        return try {
+            val response = pokemonApi.getHabitatList()
+            Result.success(response.results.map { it.name })
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
     suspend fun getPokemonDetail(name: String): Result<Pokemon> {
         return try {
             val local = pokemonDao.getPokemonByName(name)
             
-            // If we have local but no description, we should fetch from remote
-            if (local != null && local.description.isNotBlank()) {
-                val remoteDetail = pokemonApi.getPokemonDetail(name)
-                Result.success(remoteDetail.toPokemon(local.description))
+            // If we have local and it has a description AND stats, return it immediately
+            if (local != null && local.description.isNotBlank() && local.stats.isNotBlank()) {
+                Result.success(local.toPokemon())
             } else {
                 val remoteDetail = pokemonApi.getPokemonDetail(name)
-                val species = pokemonApi.getPokemonSpecies(name)
-                val description = species.flavorTextEntries
-                    .firstOrNull { it.language.name == "en" }
-                    ?.flavorText?.replace("\n", " ") ?: ""
                 
-                // Update local with description
+                // If we don't have description, fetch it
+                val description = if (local?.description.isNullOrBlank()) {
+                    val species = pokemonApi.getPokemonSpecies(name)
+                    species.flavorTextEntries
+                        .firstOrNull { it.language.name == "en" }
+                        ?.flavorText?.replace("\n", " ") ?: ""
+                } else {
+                    local!!.description
+                }
+                
+                // Save to local for next time
                 val entity = remoteDetail.toPokemonEntity(description)
                 pokemonDao.insertAll(listOf(entity))
                 
